@@ -24,7 +24,8 @@ if VIRTUAL_ENV:
 
 
 CONFIGRC = os.path.join(DKROOT, '.coveragerc').replace('\\', '/')
-_cov_cmd = 'coverage run -p {PYTEST} --cov-config={CONFIGRC} {FILENAME}'
+_cov_cmd =  'coverage run -p {PYTEST} --cov-config={CONFIGRC} '
+_cov_cmd += '--result-log={WORKDIR} {FILENAME}'
 COVERAGE = _cov_cmd.replace("{CONFIGRC}", CONFIGRC).replace("{PYTEST}", PYTEST)
 
 SKIPDIRS = ['node_modules', '.svn', 'templates', 'less', 'js', 'docs']

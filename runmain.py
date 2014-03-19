@@ -11,9 +11,11 @@ from src.testenv import TestEnvironment
 from src.testsuite import TestSuite
 
 if __name__ == "__main__":
+    start = time.time()
     tsuite = TestSuite()
     env = TestEnvironment(tsuite)
 
+    print 'done:', time.time() - start
     # # tf1 = dkcoverage.Testfile('tt3/tests/test_dg_checkin.py')
     # # tf2 = dkcoverage.Testfile('tt3/tests/test_dg_empday.py')
     # tests = [dkcoverage.Testfile(f) for f in glob.glob('tt3/tests/test_*.py')]

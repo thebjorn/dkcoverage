@@ -6,6 +6,7 @@
 import os
 from . import shell, dkenv, path, rtestcover
 import sys
+import threading
 import time
 import copy
 import os
@@ -14,6 +15,7 @@ import shlex
 import subprocess
 import multiprocessing
 import datetime
+import psutil
 from .path import make_path, normpath, timestamp
 
 
@@ -27,13 +29,29 @@ class TestEnvironment(object):
         self.cache = make_path('cache')
         os.chdir(self.cache)
 
+        running = []
+        def show_running():
+            current = list(sorted(set(int(t.name.split('-')[1]) for t in threading.enumerate() if '-' in t.name)))
+            if running != current:
+                print len(current), current
+                running[:] = current
+
         for i, tfile in enumerate(suite):
-            tfile.abscache = make_path(tfile.cachename)
-            print "running:", tfile
-            tfile.write_status()
-            #tfile.run(self)
-            if i > 5:
+            show_running()
+            while psutil.cpu_percent(.5) > 85 or threading.active_count() > 60:
+                time.sleep(.5)
+
+            threading.Thread(
+                target=tfile.run_test,
+                args=(self,)
+            ).start()
+
+        while 1:
+            n = threading.active_count()
+            if n == 1:
                 break
+            time.sleep(1)
+            show_running()
 
         # self.test_output = make_path(os.path.join(work, 'test_output'))
         # self._covcache = make_path(os.path.join(work, '_covcache'))

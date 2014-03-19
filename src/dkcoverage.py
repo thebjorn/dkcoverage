@@ -12,7 +12,6 @@ from .path import make_path, normpath, timestamp
 r"dktest --result-log \work\reslog.txt --ignore node_modules --cov . --cov-config ..\.coveragerc --cov-report term"
 
 
-
 DKCONCURRENT = 5
 
 
