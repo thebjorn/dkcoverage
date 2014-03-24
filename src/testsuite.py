@@ -3,7 +3,8 @@
 """All available tests == test suite.
 """
 
-import os
+# import os
+from pathlib import Path
 from . import dkenv, testfile
 
 
@@ -13,16 +14,20 @@ class TestSuite(object):
            Yield the largest first (in the hope that long running tests will get
            started early in the test run.
         """
-        self.test_modules = []
-        for root, dirs, files in os.walk(dkroot):
-            for d in dirs:
-                if d.startswith(('_', '.')) or d in dkenv.SKIPDIRS:
-                    dirs.remove(d)
-            for f in files:
-                if f.startswith('test_') and f.endswith('.py'):
-                    abspath = os.path.join(root, f)
-                    relpath = abspath[len(dkroot)+1:].replace('\\', '/')
-                    self.test_modules.append(testfile.Testfile(relpath))
+        self.root = Path(dkroot)
+        self.test_modules = [testfile.Testfile(f)
+                             for f in self.root.glob('**/test_*.py')]
+
+
+        # for root, dirs, files in os.walk(dkroot):
+        #     for d in dirs:
+        #         if d.startswith(('_', '.')) or d in dkenv.SKIPDIRS:
+        #             dirs.remove(d)
+        #     for f in files:
+        #         if f.startswith('test_') and f.endswith('.py'):
+        #             abspath = os.path.join(root, f)
+        #             relpath = abspath[len(dkroot)+1:].replace('\\', '/')
+        #             self.test_modules.append(testfile.Testfile(relpath))
 
     def __len__(self):
         return len(self.test_modules)
