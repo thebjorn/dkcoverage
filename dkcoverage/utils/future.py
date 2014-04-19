@@ -31,16 +31,16 @@ class Future(object):
 
     def __call__(self, waitfn=None, *args, **kwargs):
         self.__C.acquire()
-        sys.stdout.write("aquire\n")
-        sys.stdout.flush()
+        # sys.stdout.write("aquire\n")
+        # sys.stdout.flush()
         while self.__done == 0:
-            sys.stdout.write("waiting\n")
-            sys.stdout.flush()
+            # sys.stdout.write("waiting\n")
+            # sys.stdout.flush()
             if waitfn:
                 waitfn(*args, **kwargs)
             self.__C.wait()
-        sys.stdout.write("release\n")
-        sys.stdout.flush()
+        # sys.stdout.write("release\n")
+        # sys.stdout.flush()
         self.__C.release()
         if self.__excpt: raise self.__excpt
         # We deepcopy __result to prevent accidental tampering with it.

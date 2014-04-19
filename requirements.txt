@@ -1,1 +1,2 @@
 pathlib==0.97
+watchdog==0.7.1

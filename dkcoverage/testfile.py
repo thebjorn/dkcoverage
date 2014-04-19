@@ -28,6 +28,8 @@ class Testfile(object):
         self.imports = []
 
     def write_status(self):
+        """Write status info to status.txt in cache directory.
+        """
         assert self.cache.abspath
         with open(os.path.join(self.cache.abspath, 'status.txt'), 'w') as fp:
             fp.write(json.dumps(self, sort_keys=True,
@@ -35,6 +37,9 @@ class Testfile(object):
                                 indent=4))
 
     def find_modules(self):
+        """Find all the modules that this test imports.
+        """
+        # check this in a sub-process to not invalidate our own environment.
         cmd = 'python -c "import sys, %s;print sys.modules.keys()"'
         allimports = eval(subprocess.check_output(shlex.split(
             cmd % self.file.name),
@@ -49,7 +54,9 @@ class Testfile(object):
         "Spawn a process to run this test."
         cd = testenv.cache if testenv else ''
         self.cache.abspath = path.make_path(os.path.join(cd, self.cache.reldir))
+
         self.find_modules()
+
         # print "IMPORTS:", self.imports
         env = copy.copy(os.environ)
         env['DKMAILNAME'] = os.path.join(self.cache.abspath, self.file.name)

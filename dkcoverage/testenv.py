@@ -30,8 +30,11 @@ class TestEnvironment(object):
         os.chdir(self.cache)
 
         running = []
+
         def show_running():
-            current = list(sorted(set(int(t.name.split('-')[1]) for t in threading.enumerate() if '-' in t.name)))
+            current = list(sorted(set(int(t.name.split('-')[1])
+                                      for t in threading.enumerate()
+                                      if '-' in t.name)))
             if running != current:
                 print len(current), current
                 running[:] = current

@@ -13,7 +13,9 @@ def timestamp():
 def normpath(p, slash=None):
     """Return a canonical version of path ``p``.
     """
-    res = os.path.normcase(os.path.normpath(os.path.abspath(p)))
+    res = ""
+    if p is not None:
+        res = os.path.normcase(os.path.normpath(os.path.abspath(p)))
     if slash is None:
         return res
     else:
