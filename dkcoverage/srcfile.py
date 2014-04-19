@@ -13,19 +13,23 @@ class Sourcefile(object):
                 """.split()
     
     @classmethod
-    def fetch(cls, pth, root):
-        p = pth.relative_to(root)
-        cn = db.connect()
+    def fetch(cls, pth, root, cn=None):
+        p = pth.relative_to(root).as_posix()
+        if cn is None:
+            cn = db.connect()
         c = cn.cursor()
-        c.execute("""
+        sql = """
           select $FIELDS$
           from srcfiles
           where relname = ?
-        """.replace('$FIELDS$', ', '.join(cls.FIELDS)), [str(p)])
+        """.replace('$FIELDS$', ', '.join(cls.FIELDS))
+        c.execute(sql, [str(p)])
         recs = c.fetchall()
         if len(recs) == 0:
+            # print "DIDN'T FIND:", pth
             return cls(pth, root)
         rec = dict(zip(cls.FIELDS, recs[0]))
+        #print "REC:", rec
         return cls(pth, root, **rec)
 
     def __init__(self, pth, root, **kw):
@@ -80,19 +84,36 @@ class Sourcefile(object):
     def cachename(self):
         return self.relname.replace('/', '$')[:-3]
 
+    def __str__(self):
+        return self.relname
+
+    def __repr__(self):
+        import pprint
+        return pprint.pformat(self.__json__())
+
+    def __eq__(self, other):
+        return (self.size == other.size
+                and self.digest == other.digest
+                and self.relname == other.relname)
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def __json__(self):
         return dict(
             relname=str(self.relname),
             absname=str(self.absname),
             filename=str(self.filename),
             name=str(self.name),
-            # stat=self.stat,
+            size=self.size,
+            stat_atime=self.stat_atime,
+            stat_mtime=self.stat_mtime,
+            stat_created=self.stat_created,
             digest=self.digest,
         )
 
     @property
     def dependencies(self):
         if not isinstance(self._dependencies, list):
-            # wait for Future to finish.
             self._dependencies = dependencies(self.absname, self.root)
         return self._dependencies

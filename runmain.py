@@ -4,73 +4,72 @@
 # dk
 # python c:\work\github\dkcoverage\runmain.py
 
-#from Queue import Queue
-import glob
-import multiprocessing
-from multiprocessing import Process, Queue, JoinableQueue
-#from threading import Thread
-
 import time
 from pathlib import Path
-from dkcoverage import dkcoverage
-from dkcoverage.project import Project
-from dkcoverage.testenv import TestEnvironment
-from dkcoverage.testsuite import TestSuite
-from dkcoverage.utils import jason
-from dkcoverage import srcfile, dkenv
+from dkcoverage import db, dkenv, srcfile
 
 
-def dumpjson(n, fname):
-    f = srcfile.Sourcefile.fetch(fname, dkenv.DKROOT)
-    f.save()
-    # val = jason.dumps(f)
-    # with open('_coverage/_covroot/srcfiles/' + f.file.cachename + '.txt', 'w') as fp:
-    #     print >> fp, val
-    #     print "%5d %s" % (n, f.file.absname)
+def file_changed(fname, cn, root):
+    current = srcfile.Sourcefile(fname, root)
+    dbver = srcfile.Sourcefile.fetch(fname, root, cn)
+    return current != dbver
 
 
-def queue_worker(q):
-    while 1:
-        try:
-            item = q.get()
-            if item is None:
-                print "QUITTING"
-                return
-            i, fname = item
-            dumpjson(i, fname)
-        finally:
-            q.task_done()
-
-
-def find_files():
+def find_changed_files(cn):
     root = Path(dkenv.DKROOT)
-    # PCOUNT = multiprocessing.cpu_count()
-    PCOUNT = 1
-    q = JoinableQueue(maxsize=PCOUNT)
-
-    # start consumer threads
-    procs = []
-    for i in range(PCOUNT):
-        p = Process(target=queue_worker, args=(q,))
-        procs.append(p)
-        p.start()
-
-    # push work onto queue
     for i, fname in enumerate(root.glob('**/*.py')):
-        q.put((i, fname))
+        current = srcfile.Sourcefile(fname, root)
+        dbver = srcfile.Sourcefile.fetch(fname, root, cn)
+        # if 'afr\\models\\user' in str(fname.absolute()):
+        #     print "..", i, fname
+        #     print repr(current)
+        #     print repr(dbver)
+        #     print current == dbver
+        if current != dbver:  # if changed..
+            yield i, current
 
-    # post harakiri payload..
-    for i in range(PCOUNT):
-        q.put(None)
 
-    # wait for everyone to die..
-    while not q.empty():
-        time.sleep(1)
+def find_tests_to_run(fname, cn):
+    c = cn.cursor()
+    c.execute("""
+         select distinct srcfile
+         from dependencies
+         where imports = ?
+    """, [fname.relname])
+    res = set(rec[0] for rec in c.fetchall())
+    # print fname.relname
+    # print "FOUND:", res
+    return res
 
 
 if __name__ == "__main__":
     start = time.time()
-    find_files()
+    tests = set()
+    cn = db.connect()
+    for i, fname in find_changed_files(cn):
+        # print i, fname
+        print "File changed:", fname, 'must run:'
+        testfiles = find_tests_to_run(fname, cn)
+        for f in sorted(testfiles):
+            print '    ', f
+        tests |= testfiles
+
+    print "\n\nPotential tests that need to be run..:"
+    for t in sorted(tests):
+        print '    ', t
+
+    print
+    print len(tests), 'tests to run..'
+
+    # fname = Path('adofix.py').absolute()
+    # root = Path(dkenv.DKROOT).absolute()
+    # print "FNAME:", fname
+    # print "ROOT:", root
+    # a = srcfile.Sourcefile.fetch(fname, root, db.connect())
+    # b = srcfile.Sourcefile(fname, root)
+    # print a
+    # print b
+    # print "EQUAL:", a == b
     print 'done:', time.time() - start
 
 
