@@ -1,15 +1,68 @@
 # -*- coding: utf-8 -*-
+import sqlite3 as sqlite
 from .covdb import connect, create_table
 
 
-def version_0():
+def upversion():
+    newver = None
+    cn = connect()
+
     create_table("dbversion", """
         create table dbversion  (
           version int primary key
         )
-    """)
+    """, cn)
 
-    cn = connect()
+    try:
+        curver = cn.execute("select max(version) from dbversion").fetchone()[0]
+    except sqlite.OperationalError:
+        curver = -1
+
+    versions = [version_0, version_1, version_2]
+
+    for version in versions[curver+1:]:
+        newver = version(cn)
+
+    return newver
+
+
+def version_2(cn):
+    """Add lintscore column to srcfiles table.
+    """
+    cn.execute("""
+        alter table srcfiles add column lintscore real default 0.0
+    """)
+    cn.execute("insert into dbversion (version) values (2)")
+    cn.commit()
+    return 2
+
+
+def version_1(cn):
+    """Add testrun table.
+    """
+    create_table("testrun", """
+        create table testrun (
+          relname varchar(150),
+
+          passing int default 0,
+          failing int default 0,
+          erring int default 0,
+
+          elapsed_secs real,
+          pytest_output text null,
+          mailbox text null,
+          coverage blob null,
+
+          foreign key (relname) references srcfiles(relname) on delete cascade
+        )
+    """, cn)
+
+    cn.execute("insert into dbversion (version) values (1)")
+    cn.commit()
+    return 1
+
+
+def version_0(cn):
     c = cn.cursor()
     c.execute("select count(*) from dbversion where version == 0")
     if c.fetchone()[0] == 1:
@@ -43,5 +96,4 @@ def version_0():
     if c.fetchone()[0] == 0:
         c.execute("insert into dbversion (version) values (0)")
     cn.commit()
-
     return 0

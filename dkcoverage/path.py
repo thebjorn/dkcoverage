@@ -3,6 +3,7 @@
 import os
 import errno
 import datetime
+from pathlib import Path
 
 
 def timestamp():
@@ -14,6 +15,8 @@ def normpath(p, slash=None):
     """Return a canonical version of path ``p``.
     """
     res = ""
+    if isinstance(p, Path):
+        p = str(p.absolute())
     if p is not None:
         res = os.path.normcase(os.path.normpath(os.path.abspath(p)))
     if slash is None:

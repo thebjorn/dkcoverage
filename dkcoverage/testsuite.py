@@ -6,17 +6,16 @@
 # import os
 from pathlib import Path
 from . import dkenv, testfile
+from .findfiles import _all_files
 
 
 class TestSuite(object):
-    def __init__(self, dkroot=dkenv.DKROOT):
-        """Use py.test --collectonly to find all test files.
-           Yield the largest first (in the hope that long running tests will get
-           started early in the test run.
+    def __init__(self, tests):
+        """Tests to run.
         """
-        self.root = Path(dkroot)
-        self.test_modules = [testfile.Testfile(f)
-                             for f in self.root.glob('**/test_*.py')]
+        #print _all_files.keys()
+        self.test_modules = [testfile.Testfile(_all_files[Path(f).absolute()])
+                             for f in tests]
 
     def __len__(self):
         return len(self.test_modules)

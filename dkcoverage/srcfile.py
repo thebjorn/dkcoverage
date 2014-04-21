@@ -1,20 +1,38 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
-from .utils.future import Future
+from functools import total_ordering
+# from .utils.future import Future
 from .utils.dependencies import dependencies
 from .utils.digest import file_digest
-from .utils.pathinfo import PathInfo
+# from .utils.pathinfo import PathInfo
 from . import db
 
 
+@total_ordering
 class Sourcefile(object):
     FIELDS = """relname absname appname digest
                 stat_atime stat_created stat_mtime size
+                lintscore
                 """.split()
-    
+
+    @property
+    def _self_attrs(self):
+        "All saved attributes of self."
+        return [getattr(self, attr) for attr in self.FIELDS]
+
+    @property
+    def _comma_attrs(self):
+        "All fields as a comma separated string."
+        return ', '.join(self.FIELDS)
+
+    @property
+    def _placeholder_attrs(self):
+        "Return a comma separated string of placeholders for all attributes."
+        return ','.join(['?'] * len(self.FIELDS))
+
     @classmethod
     def fetch(cls, pth, root, cn=None):
-        p = pth.relative_to(root).as_posix()
+        p = Path(pth).relative_to(Path(root)).as_posix()
         if cn is None:
             cn = db.connect()
         c = cn.cursor()
@@ -26,14 +44,12 @@ class Sourcefile(object):
         c.execute(sql, [str(p)])
         recs = c.fetchall()
         if len(recs) == 0:
-            # print "DIDN'T FIND:", pth
             return cls(pth, root)
         rec = dict(zip(cls.FIELDS, recs[0]))
-        #print "REC:", rec
         return cls(pth, root, **rec)
 
     def __init__(self, pth, root, **kw):
-        pth = pth.relative_to(Path(root))
+        pth = Path(pth).relative_to(Path(root))
         self.root = root
         self._dependencies = None
         self.relname = kw.get('relname', pth.as_posix())
@@ -44,7 +60,7 @@ class Sourcefile(object):
         stat = pth.stat()
         self.size = kw.get('size', stat.st_size)
         # most recent access
-        self.stat_atime = kw.get('stat_atime', stat.st_atime)      
+        self.stat_atime = kw.get('stat_atime', stat.st_atime)
         # last modification
         self.stat_mtime = kw.get('stat_mtime', stat.st_mtime)
         # windows creation time
@@ -53,24 +69,30 @@ class Sourcefile(object):
         # self.stat = self._stat(pth)
         self.filename = kw.get('filename', pth.name)
         self.name = kw.get('name', pth.stem)
+        self.lintscore = kw.get('lintscore', 0.0)
+
+    @property
+    def is_test(self):
+        return self.name.startswith('test_')
+
+    def clear_dependencies(self):
+        self._dependencies = None
+        cn = db.connect()
+        c = cn.cursor()
+        c.execute("delete from dependencies where srcfile = ?", [self.relname])
 
     def save(self):
         cn = db.connect()
         c = cn.cursor()
-        c.execute("""
-            insert or replace into srcfiles ($FIELDS$) values ($VALUES$)
-        """.replace("$FIELDS$",
-                    ', '.join(self.FIELDS)
-        ).replace('$VALUES$',
-                  ','.join(['?'] * len(self.FIELDS))
-        ), [self.relname,
-            self.absname,
-            self.appname,
-            self.digest,
-            self.stat_atime,
-            self.stat_created,
-            self.stat_mtime,
-            self.size])
+        sql = """
+          insert or replace into srcfiles (
+            {self._comma_attrs}
+          ) values (
+            {self._placeholder_attrs}
+          )
+        """.format(self=self)
+        c.execute(sql, self._self_attrs)
+
         if self.name.startswith('test_'):
             for dep in self.dependencies:
                 c.execute("""
@@ -99,6 +121,9 @@ class Sourcefile(object):
     def __ne__(self, other):
         return not (self == other)
 
+    def __lt__(self, other):
+        return self.relname < other.relname
+
     def __json__(self):
         return dict(
             relname=str(self.relname),
@@ -115,5 +140,6 @@ class Sourcefile(object):
     @property
     def dependencies(self):
         if not isinstance(self._dependencies, list):
-            self._dependencies = dependencies(self.absname, self.root)
+            self._dependencies = dependencies(self.absname,
+                                              self.root.absolute())
         return self._dependencies

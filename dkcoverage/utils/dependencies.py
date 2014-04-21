@@ -14,7 +14,6 @@ def dependencies(fname, root=None):
 
        This function is quite slow..
     """
-    global count
     assert fname.endswith('.py')
 
     res = set()
@@ -32,12 +31,6 @@ def dependencies(fname, root=None):
             continue
         modpath = normpath(mod.__file__, slash='/')
         if modpath.startswith(root):
-            # print 'name:', name
-            # print 'mod.__file__:', mod.__file__
-            # print 'normpath:', modpath
-            # print 'root:', root
-            # print
-
             res.add(modpath[prefix:])
 
     return list(sorted(res))

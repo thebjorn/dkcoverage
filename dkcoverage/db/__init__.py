@@ -2,7 +2,5 @@
 
 from .covdb import connect
 
-from .versions import version_0 as version
-version()
-
-
+from .versions import upversion as _upversion
+_upversion()

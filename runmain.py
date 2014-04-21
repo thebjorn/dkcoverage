@@ -3,56 +3,28 @@
 # dev
 # dk
 # python c:\work\github\dkcoverage\runmain.py
-
 import time
-from pathlib import Path
-from dkcoverage import db, dkenv, srcfile
-
-
-def file_changed(fname, cn, root):
-    current = srcfile.Sourcefile(fname, root)
-    dbver = srcfile.Sourcefile.fetch(fname, root, cn)
-    return current != dbver
-
-
-def find_changed_files(cn):
-    root = Path(dkenv.DKROOT)
-    for i, fname in enumerate(root.glob('**/*.py')):
-        current = srcfile.Sourcefile(fname, root)
-        dbver = srcfile.Sourcefile.fetch(fname, root, cn)
-        # if 'afr\\models\\user' in str(fname.absolute()):
-        #     print "..", i, fname
-        #     print repr(current)
-        #     print repr(dbver)
-        #     print current == dbver
-        if current != dbver:  # if changed..
-            yield i, current
-
-
-def find_tests_to_run(fname, cn):
-    c = cn.cursor()
-    c.execute("""
-         select distinct srcfile
-         from dependencies
-         where imports = ?
-    """, [fname.relname])
-    res = set(rec[0] for rec in c.fetchall())
-    # print fname.relname
-    # print "FOUND:", res
-    return res
+from dkcoverage import db, findfiles, testsuite, testenv
 
 
 if __name__ == "__main__":
     start = time.time()
+
     tests = set()
     cn = db.connect()
-    for i, fname in find_changed_files(cn):
-        # print i, fname
-        print "File changed:", fname, 'must run:'
-        testfiles = find_tests_to_run(fname, cn)
-        for f in sorted(testfiles):
-            print '    ', f
-        tests |= testfiles
+    for fname in findfiles.find_changed_files(cn):
+        print
+        if fname.is_test:
+            print "Found changed test file:", fname
+            fname.clear_dependencies()
+            fname.save()  # finds dependencies and saves to db.
+            tests.add(fname.relname)
+        else:
+            print "File changed:", fname, 'must run:'
+            testfiles = findfiles.find_tests_to_run(fname, cn)
+            for f in sorted(testfiles):
+                print '    ', f
+            tests |= testfiles
 
     print "\n\nPotential tests that need to be run..:"
     for t in sorted(tests):
@@ -61,21 +33,12 @@ if __name__ == "__main__":
     print
     print len(tests), 'tests to run..'
 
-    # fname = Path('adofix.py').absolute()
-    # root = Path(dkenv.DKROOT).absolute()
-    # print "FNAME:", fname
-    # print "ROOT:", root
-    # a = srcfile.Sourcefile.fetch(fname, root, db.connect())
-    # b = srcfile.Sourcefile(fname, root)
-    # print a
-    # print b
-    # print "EQUAL:", a == b
+    tsuite = testsuite.TestSuite(tests)
+    testenv.TestEnvironment(tsuite)
+
     print 'done:', time.time() - start
 
-
-
-#proj = Project()
-
+    #proj = Project()
 
     # wait for all threads to finish
     # for i, p in enumerate(procs):

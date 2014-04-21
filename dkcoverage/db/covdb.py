@@ -9,11 +9,14 @@ DBLOCATION = os.path.join(dkenv.DKROOT, '_coverage', '_covroot', 'dkcoverage.db'
 
 
 def connect():
-    return sqlite.Connection(DBLOCATION)
+    cn = sqlite.Connection(DBLOCATION)
+    cn.row_factory = sqlite.Row
+    return cn
 
 
-def create_table(name, ddl):
+def create_table(name, ddl, cn=None):
+    cn = cn or connect()
     try:
-        connect().execute("select 1 from " + name)
+        cn.execute("select 1 from " + name)
     except sqlite.OperationalError:
-        connect().execute(ddl)
+        cn.execute(ddl)
